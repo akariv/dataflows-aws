@@ -52,7 +52,7 @@ class S3Dumper(FileDumper):
         # We get some paths as `./data.csv`
         path = os.path.normpath(path)
         key = _generate_key(path, self._base_path, self._descriptor)
-        content_type, _ = (self._content_type, None) or mimetypes.guess_type(key) or ('text/plain', None)
+        content_type, _ = (self._content_type, None) if self._content_type else mimetypes.guess_type(key) or ('text/plain', None)
 
         try:
 
@@ -65,14 +65,18 @@ class S3Dumper(FileDumper):
                 return
 
             # Upload file to S3
-            self._s3_client.put_object(
-                ACL=self._acl,
+            kwargs = dict(
                 Body=open(filename, 'rb'),
                 Bucket=self._bucket,
-                ContentType=content_type,
-                CacheControl=self._cache_control,
-                Key=key)
-
+                Key=key
+            )
+            if self._cache_control is not None:
+                kwargs['CacheControl'] = self._cache_control
+            if content_type is not None:
+                kwargs['ContentType'] = content_type            
+            if self._acl is not None:
+                kwargs['ACL'] = self._acl
+            self._s3_client.put_object(**kwargs)
             # Calculate URL and return
             return os.path.join(self._endpoint_url, self._bucket, key)
 
